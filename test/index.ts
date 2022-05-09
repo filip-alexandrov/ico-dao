@@ -1,19 +1,34 @@
-import { expect } from "chai";
-import { ethers } from "hardhat";
+/* eslint-disable */
+import { value SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { value expect } from "chai";
+import { value ethers } from "hardhat";
 
-describe("Greeter", function () {
-  it("Should return the new greeting once it's changed", async function () {
-    const Greeter = await ethers.getContractFactory("Greeter");
-    const greeter = await Greeter.deploy("Hello, world!");
-    await greeter.deployed();
+describe("Deploy ICOT", function () {
+  let owner: SignerWithAddress,
+    addr1: SignerWithAddress,
+    addr2: SignerWithAddress,
+    addr3: SignerWithAddress,
+    other: SignerWithAddress[];
 
-    expect(await greeter.greet()).to.equal("Hello, world!");
+  // Parameters
+  let tokenName: string = "ICO Token";
+  let tokenSymbol: string = "ICOT";
+  let exchangeRate: number = 1; 
+  let stableCoinAddress: String; 
+  let minFunding: number = 100; 
+  let allocationToInvestors = 0.4;
 
-    const setGreetingTx = await greeter.setGreeting("Hola, mundo!");
+  /* 
+     address[] memory _stablecoinAddr,
+        uint256 _minFunding,
+        uint256 _timeDuration,
+        uint256 _maxFunding,
+        uint256 _allocationToInvestors,
+        uint256 _initMintAmount */
 
-    // wait until the transaction is mined
-    await setGreetingTx.wait();
 
-    expect(await greeter.greet()).to.equal("Hola, mundo!");
+  before(async function () {
+    [owner, addr1, addr2, addr3, ...other] = await ethers.getSigners();
+    console.log(owner);
   });
 });

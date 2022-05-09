@@ -1,3 +1,13 @@
+# ERC20 ICO Project 
+* Normally, ```npm i``` should replicate dev environment on any OS
+* At early stages of development: 
+    * ```npx hardhat compile``` version of solidity in hardhat.config should match the contracts
+    * ```npx hardhat test``` to run test folder
+    * ```npm run prettier``` to format code (only if compilable)
+    
+
+
+
 # Advanced Sample Hardhat Project
 
 This project demonstrates an advanced Hardhat use case, integrating other tools commonly used alongside Hardhat in the ecosystem.
