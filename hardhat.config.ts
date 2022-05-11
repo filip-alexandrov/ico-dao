@@ -6,6 +6,7 @@ import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
+import "@nomiclabs/hardhat-solhint";
 
 dotenv.config();
 
@@ -23,7 +24,15 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // Go to https://hardhat.org/config/ to learn more
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.10",
+  solidity: {
+    version: "0.8.10",
+    settings: {
+      optimizer: {
+        enabled: false,
+        runs: 2000, // optimize code to safe upto 2x gas
+      },
+    },
+  },
   networks: {
     ropsten: {
       url: process.env.ROPSTEN_URL || "",
@@ -32,11 +41,14 @@ const config: HardhatUserConfig = {
     },
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
+    enabled: false, // enable for detailed gas report
     currency: "USD",
+    // gasPrice: 45,
+    token: "ETH",
+    coinmarketcap: "5a4f55b1-966b-4dcf-8100-7253ee0b2301", // api to get eth price
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: process.env.ETHERSCAN_API_KEY, // api to get gas price
   },
 };
 

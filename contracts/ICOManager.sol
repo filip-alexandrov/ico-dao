@@ -8,11 +8,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract ICOManager is ReentrancyGuard {
     using PRBMathUD60x18 for uint256;
 
-    address owner;
+    address public owner;
     uint256 public exchangeRate; // how many stablecoins per ICOT
 
     mapping(address => bool) public stablecoinAddress; // whitelist stablecoins
-    address[] stablecoinAddrList;
+    address[] public stablecoinAddrList;
 
     uint256 public minFunding; // 18 decimal
     uint256 public maxFunding;
@@ -26,7 +26,10 @@ contract ICOManager is ReentrancyGuard {
     mapping(address => address) public stablecoinUsed;
 
     address public ICOTAddress;
-    uint256 public ICOAmount; // total amount available to be Offered
+    uint256 public ICOCurrent; // total amount available to be Offered
+
+    uint256 public minICOTokens; // min tokens to be sold
+    uint256 public maxICOTokens;
 
     bool public timeLimitReached = true; // dont start ICO immediately after deployment
 
@@ -45,20 +48,22 @@ contract ICOManager is ReentrancyGuard {
     }
 
     modifier ICOActive() {
-        require(timeLimitReached == false, "ICO is not active");
+        require(timeLimitReached == false, "ICO is active");
         _;
     }
 
     // PreICO functions
     function startICO() private {
-        require(allocationToInvestors < 1**10**18, "ICO Amount !< 1");
+        require(allocationToInvestors < 1*10**18, "ICO Amount !< 1");
+        uint256 icotBalance = IERC20(ICOTAddress).balanceOf(address(this));
 
-        ICOAmount =
-            IERC20(ICOTAddress).balanceOf(address(this)) -
-            maxFunding.div(exchangeRate); // in ICOT Tokens
-        ICOAmount = ICOAmount.mul(allocationToInvestors); // 18-precision Decimal operation
+        minICOTokens = minFunding.div(exchangeRate); // 18-precision Decimal operation
+        
+        uint256 maxICOTpossible = icotBalance.mul(allocationToInvestors); // ICOT * 0.4 for max 40% of vault allocation to investors
+        maxICOTokens = maxFunding.div(exchangeRate); 
 
-        require(ICOAmount > 0, "Not enough tokens in ICO Manager");
+        require(maxICOTokens < maxICOTpossible, "Increase allocation To Investors");
+        require(maxICOTokens > 0, "Not enough tokens in ICO Manager");
         timeLimitReached = false;
     }
 
@@ -70,9 +75,12 @@ contract ICOManager is ReentrancyGuard {
         uint256 _maxFunding,
         uint256 _allocationToInvestors
     ) public onlyOwner {
+        require(timeLimitReached, "ICO is already active");
+
         // Set list of stablecoin addresses which are accepted
         for (uint80 i = 0; i < _stablecoinAddr.length; i++) {
             stablecoinAddress[_stablecoinAddr[i]] = true;
+            stablecoinAddrList.push(_stablecoinAddr[i]);
         }
 
         timeLimit = block.timestamp + _timeDuration;
@@ -86,47 +94,65 @@ contract ICOManager is ReentrancyGuard {
     }
 
     // Intra ICO functions
-    function checkTimeLimit() public ICOActive {
+    function checkTimeLimit() public ICOActive nonReentrant {
         // Can be called by anyone; possible to be gas-expensive
+        console.log("TimeLimit check");
+
         if (block.timestamp > timeLimit) {
-            if (ICOAmount < minFunding * exchangeRate) {
+            if (ICOCurrent > minICOTokens) {
+                console.log("ICO successful");
+
                 allocateCoinsToInvestors();
             } else {
+                console.log("ICO not successful");
+
                 returnStablecoinsToInvestors();
             }
             resetICOParams();
             timeLimitReached = true;
-        }
+        } 
     }
 
     function participate(uint256 _amount, address _stablecoinAddr)
         public
-        ICOActive
+        ICOActive()
     {
+        if(stablecoinUsed[msg.sender] != address(0)){
+            // one stablecoin per investor 
+            require(stablecoinUsed[msg.sender] == _stablecoinAddr, "Only consistent stablecoin allowed");
+        } 
+
         require(_amount > 0, "Amount must be greater than 0");
-        require(_amount <= ICOAmount, "Not enough tokens in ICO Manager");
+        require(_amount + ICOCurrent <= maxICOTokens, "Not enough tokens available");
         require(
             stablecoinAddress[_stablecoinAddr],
             "Stablecoin is not accepted"
         );
         require(
             IERC20(_stablecoinAddr).balanceOf(msg.sender) >=
-                _amount.div(exchangeRate),
+                _amount.mul(exchangeRate),
             "Not enough tokens in stablecoin"
         );
 
         IERC20(_stablecoinAddr).transferFrom(
             msg.sender,
             address(this),
-            _amount.div(exchangeRate)
+            _amount.mul(exchangeRate)
         );
-        ICOAmount -= _amount;
+        ICOCurrent += _amount;
         investorsAmounts[msg.sender] += _amount;
         investorsAddresses.push(msg.sender);
+
+        // After successful transfer, set the stablecoin used
+        stablecoinUsed[msg.sender] = _stablecoinAddr;
+
+        // Allow investor to participate in ICO, although time is up
+        // to prevent gas wasting 
+        checkTimeLimit();
     }
 
     // Post ICO functions
-    function allocateCoinsToInvestors() private nonReentrant {
+    function allocateCoinsToInvestors() private {
         for (uint80 i = 0; i < investorsAddresses.length; i++) {
             uint256 amountToTransfer = investorsAmounts[investorsAddresses[i]];
 
@@ -137,6 +163,7 @@ contract ICOManager is ReentrancyGuard {
             require(transferedICOT, "Failed to transfer ICOT");
 
             investorsAmounts[investorsAddresses[i]] = 0;
+            stablecoinUsed[investorsAddresses[i]] = address(0);
         }
 
         // reset investors list
@@ -144,7 +171,7 @@ contract ICOManager is ReentrancyGuard {
         immediateTransfer();
     }
 
-    function returnStablecoinsToInvestors() private nonReentrant {
+    function returnStablecoinsToInvestors() private {
         for (uint80 i = 0; i < investorsAddresses.length; i++) {
             uint256 amountToTransfer = investorsAmounts[investorsAddresses[i]]
                 .mul(exchangeRate);
@@ -157,16 +184,21 @@ contract ICOManager is ReentrancyGuard {
 
             require(transferedICOT, "Failed to transfer Stablecoin");
             investorsAmounts[investorsAddresses[i]] = 0;
+
+            // Remove stablecoin record
+            investorsAmounts[investorsAddresses[i]] = 0;
+            stablecoinUsed[investorsAddresses[i]] = address(0);
         }
 
         // reset investors list
         investorsAddresses = new address[](0);
     }
 
-    function resetICOParams() private nonReentrant {
+    function resetICOParams() private {
         for (uint80 i = 0; i < stablecoinAddrList.length; i++) {
             stablecoinAddress[stablecoinAddrList[i]] = false;
         }
+        stablecoinAddrList = new address[](0);
 
         timeLimit = 0;
 
@@ -174,10 +206,14 @@ contract ICOManager is ReentrancyGuard {
         maxFunding = 0;
         allocationToInvestors = 0;
         exchangeRate = 0;
+        ICOCurrent = 0; 
+        minICOTokens = 0; 
+        maxICOTokens = 0; 
     }
 
     // Vault functions
-    function immediateTransfer() private nonReentrant {
+    function immediateTransfer() private {
+        console.log("Transfering 20% funds to owner"); 
         for (uint80 i = 0; i < stablecoinAddrList.length; i++) {
             uint256 amountToTransfer = IERC20(stablecoinAddrList[i]).balanceOf(address(this));
             amountToTransfer = amountToTransfer.mul(fundImmediateTransfer);
@@ -187,7 +223,8 @@ contract ICOManager is ReentrancyGuard {
         }
     }
 
-    function transferStablecoin(address _stablecoinAddr, address _to, uint256 _amount) public onlyOwner() {
+    function transferStablecoin(address _stablecoinAddr, address _to, uint256 _amount) public onlyOwner() nonReentrant {
+        require(timeLimitReached, "ICO in progress");
         bool transferSuccess = IERC20(_stablecoinAddr).transfer(_to, _amount);
         require(transferSuccess, "Failed to transfer Stablecoin");
     }
