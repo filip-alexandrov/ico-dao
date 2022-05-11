@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
     version: "0.8.10",
     settings: {
       optimizer: {
-        enabled: false,
+        enabled: true,
         runs: 2000, // optimize code to safe upto 2x gas
       },
     },
@@ -41,7 +41,7 @@ const config: HardhatUserConfig = {
     },
   },
   gasReporter: {
-    enabled: false, // enable for detailed gas report
+    enabled: true, // enable for detailed gas report
     currency: "USD",
     // gasPrice: 45,
     token: "ETH",
@@ -49,6 +49,9 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY, // api to get gas price
+  },
+  mocha: {
+    timeout: 600000, // Timeout 10min
   },
 };
 

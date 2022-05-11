@@ -48,13 +48,13 @@ contract ICOManager is ReentrancyGuard {
     }
 
     modifier ICOActive() {
-        require(timeLimitReached == false, "ICO is active");
+        require(timeLimitReached == false, "ICO is not active");
         _;
     }
 
     // PreICO functions
     function startICO() private {
-        require(allocationToInvestors < 1*10**18, "ICO Amount !< 1");
+        require(allocationToInvestors <= 1*10**18, "ICO Amount !< 1");
         uint256 icotBalance = IERC20(ICOTAddress).balanceOf(address(this));
 
         minICOTokens = minFunding.div(exchangeRate); // 18-precision Decimal operation
@@ -62,7 +62,7 @@ contract ICOManager is ReentrancyGuard {
         uint256 maxICOTpossible = icotBalance.mul(allocationToInvestors); // ICOT * 0.4 for max 40% of vault allocation to investors
         maxICOTokens = maxFunding.div(exchangeRate); 
 
-        require(maxICOTokens < maxICOTpossible, "Increase allocation To Investors");
+        require(maxICOTokens <= maxICOTpossible, "Increase allocation To Investors");
         require(maxICOTokens > 0, "Not enough tokens in ICO Manager");
         timeLimitReached = false;
     }
@@ -96,15 +96,15 @@ contract ICOManager is ReentrancyGuard {
     // Intra ICO functions
     function checkTimeLimit() public ICOActive nonReentrant {
         // Can be called by anyone; possible to be gas-expensive
-        console.log("TimeLimit check");
+        // console.log("TimeLimit check");
 
         if (block.timestamp > timeLimit) {
             if (ICOCurrent > minICOTokens) {
-                console.log("ICO successful");
+                // console.log("ICO successful");
 
                 allocateCoinsToInvestors();
             } else {
-                console.log("ICO not successful");
+                // console.log("ICO not successful");
 
                 returnStablecoinsToInvestors();
             }
@@ -213,7 +213,7 @@ contract ICOManager is ReentrancyGuard {
 
     // Vault functions
     function immediateTransfer() private {
-        console.log("Transfering 20% funds to owner"); 
+        // console.log("Transfering 20% funds to owner"); 
         for (uint80 i = 0; i < stablecoinAddrList.length; i++) {
             uint256 amountToTransfer = IERC20(stablecoinAddrList[i]).balanceOf(address(this));
             amountToTransfer = amountToTransfer.mul(fundImmediateTransfer);
