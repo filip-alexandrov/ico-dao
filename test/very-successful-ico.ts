@@ -10,7 +10,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { BigNumber, Contract, ContractFactory, Signer, Wallet } from "ethers";
 
-describe.only("Very Successful ICO", function () {
+describe("Very Successful ICO", function () {
   let owner: SignerWithAddress,
     addr1: SignerWithAddress,
     addr2: SignerWithAddress,
