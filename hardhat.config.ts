@@ -7,6 +7,7 @@ import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "@nomiclabs/hardhat-solhint";
+import "hardhat-contract-sizer"
 
 dotenv.config();
 
@@ -29,7 +30,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 2000, // optimize code to safe upto 2x gas
+        runs: 20, // optimize code to safe upto 2x gas
       },
     },
   },
@@ -41,7 +42,7 @@ const config: HardhatUserConfig = {
     },
   },
   gasReporter: {
-    enabled: true, // enable for detailed gas report
+    enabled: false, // enable for detailed gas report
     currency: "USD",
     // gasPrice: 45,
     token: "ETH",
@@ -53,6 +54,10 @@ const config: HardhatUserConfig = {
   mocha: {
     timeout: 600000, // Timeout 10min
   },
+  contractSizer: {
+    strict: false, // error if exceeds 24kb limit
+    runOnCompile: false,
+  }
 };
 
 export default config;

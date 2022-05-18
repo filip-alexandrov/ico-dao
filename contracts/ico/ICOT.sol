@@ -11,14 +11,10 @@ import "hardhat/console.sol";
 // @Alexandrov: Choosen sol version offers long-term support
 // 18 decimals precisiion (is standard)
 
-
 contract ICOT is ERC20 {
     address owner;
 
-    constructor(
-        string memory name,
-        string memory symbol
-    ) ERC20(name, symbol) {
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
         owner = msg.sender;
     }
 

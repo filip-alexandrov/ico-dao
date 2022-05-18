@@ -4,6 +4,13 @@
     * ```npx hardhat compile``` version of solidity in hardhat.config should match the contracts
     * ```npx hardhat test``` to run test folder
     * ```npm run prettier``` to format code (only if compilable)
+    * ```npx hardhat size-contracts``` to size the contracts (24KB mainnet limit)
+
+
+#### Optimizations of the code
+* 200 runs results 14.16KB Governor size
+* 2000 runs => 15.6KB Governor size
+* 20 runs => 14.02KB Governor size
     
 
 
