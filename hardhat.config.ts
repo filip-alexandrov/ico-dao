@@ -7,7 +7,7 @@ import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "@nomiclabs/hardhat-solhint";
-import "hardhat-contract-sizer"
+import "hardhat-contract-sizer";
 
 dotenv.config();
 
@@ -35,11 +35,24 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    ropsten: {
-      url: process.env.ROPSTEN_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    kovan: {
+      url: "https://kovan.infura.io/v3/b80ca1c194e74356b5926ce8f2c5a561",
+      accounts: [process.env.PRIVKEY || ""],
     },
+    "optimism-kovan": {
+      url: "https://kovan.optimism.io",
+      accounts: [process.env.PRIVKEY || ""],
+    },
+    rinkeby:{
+      url: "https://rinkeby.infura.io/v3/b80ca1c194e74356b5926ce8f2c5a561", 
+      accounts: [process.env.PRIVKEY || ""],
+    },
+    mainnet:{
+      url: "https://mainnet.infura.io/v3/b80ca1c194e74356b5926ce8f2c5a561", 
+      accounts: [process.env.PRIVKEY || ""],
+    }
+    
+    
   },
   gasReporter: {
     enabled: false, // enable for detailed gas report
@@ -49,7 +62,12 @@ const config: HardhatUserConfig = {
     coinmarketcap: "5a4f55b1-966b-4dcf-8100-7253ee0b2301", // api to get eth price
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY, // api to get gas price
+    apiKey: {
+      mainnet: "QNHRRBU79TSRAKWN2NBP78HZYY2XCJBFSU", // api to get gas price / verify
+      optimisticKovan: "BX38I5HEZGG7UMJ87Q7PYIT9BKM5SGWKAA",
+      kovan: "QNHRRBU79TSRAKWN2NBP78HZYY2XCJBFSU",
+      rinkeby: "QNHRRBU79TSRAKWN2NBP78HZYY2XCJBFSU",
+    },
   },
   mocha: {
     timeout: 600000, // Timeout 10min
@@ -57,7 +75,7 @@ const config: HardhatUserConfig = {
   contractSizer: {
     strict: false, // error if exceeds 24kb limit
     runOnCompile: false,
-  }
+  },
 };
 
 export default config;

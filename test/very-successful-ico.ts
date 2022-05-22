@@ -16,7 +16,7 @@ describe("Very Successful ICO", function () {
     addr2: SignerWithAddress,
     addr3: SignerWithAddress,
     other: SignerWithAddress[];
-
+ 
   let thousandParticipants: Wallet[] = [];
 
   // ICOT Token params

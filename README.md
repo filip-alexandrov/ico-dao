@@ -5,11 +5,15 @@
     * ```npx hardhat test``` to run test folder
     * ```npm run prettier``` to format code (only if compilable)
     * ```npx hardhat size-contracts``` to size the contracts (24KB mainnet limit)
+    * ```npx hardhat run scripts/deploy.ts --network optimism-kovan``` to deploy on Level 2
+    * ```npx hardhat verify --network mainnet DEPLOYED_CONTRACT_ADDRESS "Constructor argument 1"``` verify contract source
+    * ``` npx hardhat run scripts/deploy.ts --network optimism-kovan``` Deploy to level 2
+    * ``` npx hardhat run scripts/deploy.ts --network kovan``` Deploy to level 1 EVM
 
 
 #### Optimizations of the code
-* 200 runs results 14.16KB Governor size
 * 2000 runs => 15.6KB Governor size
+* 200 runs results 14.16KB Governor size
 * 20 runs => 14.02KB Governor size
     
 

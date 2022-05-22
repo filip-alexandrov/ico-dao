@@ -32,9 +32,7 @@ contract VotingToken is ERC20, ERC20Permit, ERC20Votes {
         super._burn(account, amount);
     }
 
-    function mint(address to, uint256 amount)
-        public
-    {
-       _mint(to, amount);
+    function mint(address to, uint256 amount) public {
+        _mint(to, amount);
     }
 }
