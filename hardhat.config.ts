@@ -70,7 +70,7 @@ const config: HardhatUserConfig = {
     },
   },
   mocha: {
-    timeout: 600000, // Timeout 10min
+    timeout: 600000, // Chai timeout 10min, to satisfy stress testing
   },
   contractSizer: {
     strict: false, // error if exceeds 24kb limit

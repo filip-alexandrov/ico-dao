@@ -6,7 +6,7 @@ import { ethers, network } from "hardhat";
 import { BigNumber, Contract, ContractFactory, Signer, Wallet } from "ethers";
 import { encode } from "punycode";
 
-describe.only("DAO functionality test", function () {
+describe("DAO functionality test", function () {
   let owner: SignerWithAddress,
     addr1: SignerWithAddress,
     addr2: SignerWithAddress,

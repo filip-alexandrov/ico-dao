@@ -8,6 +8,20 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract ICOManager is ReentrancyGuard {
     using PRBMathUD60x18 for uint256;
 
+    // Investor data
+    struct ParticipationTicket {
+        address stablecoinUsed;
+        uint256 amount;
+        uint256 endOfICO;
+    }
+    mapping(address => ParticipationTicket[]) public participationTickets;
+    
+
+    // Stablecoin vaults
+    mapping(address => uint256) public vaultStablecoin; // stablecoins raised by successful ICO's
+    mapping(address => uint256) public temporaryStablecoinVault; // stablecoins raised by still running ICO's
+    mapping(uint256 => bool) public successICO; // true if ICO was successful
+
     address public owner;
     uint256 public exchangeRate; // how many stablecoins per ICOT
 
@@ -20,10 +34,6 @@ contract ICOManager is ReentrancyGuard {
 
     uint256 public allocationToInvestors; // ex. 0.4 the rest remains in contract
     uint256 public fundImmediateTransfer; // % of the fund to be directly transfered to owner
-
-    mapping(address => uint256) public investorsAmounts;
-    address[] public investorsAddresses;
-    mapping(address => address) public stablecoinUsed;
 
     address public ICOTAddress;
     uint256 public ICOCurrent; // total amount available to be Offered
@@ -102,17 +112,28 @@ contract ICOManager is ReentrancyGuard {
     // Intra ICO functions
     function checkTimeLimit() public ICOActive nonReentrant {
         // Can be called by anyone; possible to be gas-expensive
-        // console.log("TimeLimit check");
 
         if (block.timestamp > timeLimit) {
             if (ICOCurrent > minICOTokens) {
-                // console.log("ICO successful");
+                // move coins from temporary vault to vault
+                for (uint256 i = 0; i < stablecoinAddrList.length; i++) {
+                    vaultStablecoin[
+                        stablecoinAddrList[i]
+                    ] += temporaryStablecoinVault[stablecoinAddrList[i]];
+                    temporaryStablecoinVault[stablecoinAddrList[i]] = 0;
+                }
 
-                allocateCoinsToInvestors();
+                // ICO successful => immediate transfer to owner
+                immediateTransfer();
+
+                successICO[timeLimit] = true;
             } else {
-                // console.log("ICO not successful");
+                // unsuccessful ICO, empty the temporary vault, refund all investors
+                for (uint256 i = 0; i < stablecoinAddrList.length; i++) {
+                    temporaryStablecoinVault[stablecoinAddrList[i]] = 0;
+                }
 
-                returnStablecoinsToInvestors();
+                successICO[timeLimit] = false;
             }
             resetICOParams();
             timeLimitReached = true;
@@ -123,18 +144,11 @@ contract ICOManager is ReentrancyGuard {
         public
         ICOActive
     {
-        if (stablecoinUsed[msg.sender] != address(0)) {
-            // one stablecoin per investor
-            require(
-                stablecoinUsed[msg.sender] == _stablecoinAddr,
-                "Only consistent stablecoin allowed"
-            );
-        }
-
+        // check balances of stablecoin and ICOT
         require(_amount > 0, "Amount must be greater than 0");
         require(
             _amount + ICOCurrent <= maxICOTokens,
-            "Not enough tokens available"
+            "Not enough ICOT tokens available"
         );
         require(
             stablecoinAddress[_stablecoinAddr],
@@ -143,68 +157,29 @@ contract ICOManager is ReentrancyGuard {
         require(
             IERC20(_stablecoinAddr).balanceOf(msg.sender) >=
                 _amount.mul(exchangeRate),
-            "Not enough tokens in stablecoin"
+            "Not enough stablecoin"
         );
 
+        uint256 amountStablecoin = _amount.mul(exchangeRate);
         IERC20(_stablecoinAddr).transferFrom(
             msg.sender,
             address(this),
-            _amount.mul(exchangeRate)
+            amountStablecoin
         );
-        ICOCurrent += _amount;
-        investorsAmounts[msg.sender] += _amount;
-        investorsAddresses.push(msg.sender);
 
-        // After successful transfer, set the stablecoin used
-        stablecoinUsed[msg.sender] = _stablecoinAddr;
+        // Update ICO variables
+        ICOCurrent += _amount;
+        participationTickets[msg.sender].push(
+            ParticipationTicket(_stablecoinAddr, _amount, timeLimit)
+        );
+        temporaryStablecoinVault[_stablecoinAddr] += amountStablecoin;
 
         // Allow investor to participate in ICO, although time is up
         // to prevent gas wasting
         checkTimeLimit();
     }
 
-    // Post ICO functions
-    function allocateCoinsToInvestors() private {
-        for (uint80 i = 0; i < investorsAddresses.length; i++) {
-            uint256 amountToTransfer = investorsAmounts[investorsAddresses[i]];
-
-            bool transferedICOT = IERC20(ICOTAddress).transfer(
-                investorsAddresses[i],
-                amountToTransfer
-            );
-            require(transferedICOT, "Failed to transfer ICOT");
-
-            investorsAmounts[investorsAddresses[i]] = 0;
-            stablecoinUsed[investorsAddresses[i]] = address(0);
-        }
-
-        // reset investors list
-        investorsAddresses = new address[](0);
-        immediateTransfer();
-    }
-
-    function returnStablecoinsToInvestors() private {
-        for (uint80 i = 0; i < investorsAddresses.length; i++) {
-            uint256 amountToTransfer = investorsAmounts[investorsAddresses[i]]
-                .mul(exchangeRate);
-            address stablecoinAddr = stablecoinUsed[investorsAddresses[i]];
-
-            bool transferedICOT = IERC20(stablecoinAddr).transfer(
-                investorsAddresses[i],
-                amountToTransfer
-            );
-
-            require(transferedICOT, "Failed to transfer Stablecoin");
-            investorsAmounts[investorsAddresses[i]] = 0;
-
-            // Remove stablecoin record
-            investorsAmounts[investorsAddresses[i]] = 0;
-            stablecoinUsed[investorsAddresses[i]] = address(0);
-        }
-
-        // reset investors list
-        investorsAddresses = new address[](0);
-    }
+    // POST ICO FUNCTIONS
 
     function resetICOParams() private {
         for (uint80 i = 0; i < stablecoinAddrList.length; i++) {
@@ -223,7 +198,80 @@ contract ICOManager is ReentrancyGuard {
         maxICOTokens = 0;
     }
 
-    // Vault functions
+    // Investor should call this function to withdraw stablecoins/ICOT tokenss
+    // Don't allow holding tokens or stablecoins between ICO's (security)
+    function withdraw() public nonReentrant {
+        for (uint256 i = 0; i < participationTickets[msg.sender].length; i++) {
+            // ICO was successful => transfer ICOT tokens to investor
+            uint256 endOfICO = participationTickets[msg.sender][i].endOfICO;
+
+            if (successICO[endOfICO] == true) {
+                // Remove and pay ticket from participationTickets
+                uint256 amountToTransfer = participationTickets[msg.sender][i]
+                    .amount;
+                
+                IERC20(ICOTAddress).transfer(msg.sender, amountToTransfer);
+
+                // Swap current and last ticket, and pop last ticket
+                uint256 currentTicketsLength = participationTickets[msg.sender]
+                    .length;
+                address lastStablecoinUsed = participationTickets[msg.sender][
+                    currentTicketsLength - 1
+                ].stablecoinUsed;
+                uint256 lastAmount = participationTickets[msg.sender][
+                    currentTicketsLength - 1
+                ].amount;
+                uint256 lastEndOfICO = participationTickets[msg.sender][
+                    currentTicketsLength - 1
+                ].endOfICO;
+
+                participationTickets[msg.sender][i] = ParticipationTicket(
+                    lastStablecoinUsed,
+                    lastAmount,
+                    lastEndOfICO
+                );
+                participationTickets[msg.sender].pop();
+            }
+            // ICO unsuccessful, return Stablecoin
+            else if (successICO[endOfICO] == false) {
+                // Remove and pay ticket from participationTickets
+                uint256 amountToTransfer = participationTickets[msg.sender][i]
+                    .amount
+                    .mul(exchangeRate);
+                address stablecoinUsed = participationTickets[msg.sender][i]
+                    .stablecoinUsed;
+                IERC20(stablecoinUsed).transfer(msg.sender, amountToTransfer);
+
+                // Swap current and last ticket, and pop last ticket
+                uint256 currentTicketsLength = participationTickets[msg.sender]
+                    .length;
+                address lastStablecoinUsed = participationTickets[msg.sender][
+                    currentTicketsLength - 1
+                ].stablecoinUsed;
+                uint256 lastAmount = participationTickets[msg.sender][
+                    currentTicketsLength - 1
+                ].amount;
+                uint256 lastEndOfICO = participationTickets[msg.sender][
+                    currentTicketsLength - 1
+                ].endOfICO;
+
+                participationTickets[msg.sender][i] = ParticipationTicket(
+                    lastStablecoinUsed,
+                    lastAmount,
+                    lastEndOfICO
+                );
+                participationTickets[msg.sender].pop();
+            }
+
+            // Now last ticket is the current ticket, prevents underflow
+            if(i > 0){
+                i--;
+            }
+        }
+    }
+
+    // VAULT FUNCTIONS
+    // Transfer % of stablecoin raised to owner immediately after ICO
     function immediateTransfer() private {
         // console.log("Transfering 20% funds to owner");
         for (uint80 i = 0; i < stablecoinAddrList.length; i++) {
@@ -236,6 +284,9 @@ contract ICOManager is ReentrancyGuard {
                 owner,
                 amountToTransfer
             );
+
+            // permanent vault decreases
+            vaultStablecoin[stablecoinAddrList[i]] -= amountToTransfer;
             require(
                 transferedImmediate,
                 "Failed to immediately transfer Stablecoin"
@@ -243,6 +294,7 @@ contract ICOManager is ReentrancyGuard {
         }
     }
 
+    // Allow owner to transfer stablecoins when no ICO is active
     function transferStablecoin(
         address _stablecoinAddr,
         address _to,
@@ -251,5 +303,15 @@ contract ICOManager is ReentrancyGuard {
         require(timeLimitReached, "ICO in progress");
         bool transferSuccess = IERC20(_stablecoinAddr).transfer(_to, _amount);
         require(transferSuccess, "Failed to transfer Stablecoin");
+    }
+
+    // Change owner of the contract
+    function transferOwnership(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0), "New owner cannot be empty");
+        require(
+            _newOwner != owner,
+            "New owner cannot be the same as the old one"
+        );
+        owner = _newOwner;
     }
 }

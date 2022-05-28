@@ -48,10 +48,11 @@ describe("Successful ICO", function () {
   let icoManagerContract: Contract;
   let icoManagerAddress: String;
 
-  // Utils 
-  let tokensStillAvailable:BigNumber; // Tokens available for Addr2 to buy
-  let maxICOTokens:BigNumber; 
-  let tokensTotalInContract:BigNumber = maxFundingBig; 
+  // Utils
+  let tokensStillAvailable: BigNumber; // Tokens available for Addr2 to buy
+  let maxICOTokens: BigNumber;
+  let tokensTotalInContract: BigNumber = maxFundingBig;
+  let endTime: number;
 
   // Sequential testing, after this block EVM state will change
   before(async function () {
@@ -121,8 +122,12 @@ describe("Successful ICO", function () {
     expect(await icotContract.balanceOf(addr2.address)).to.equal(maxFundingBig);
 
     // Burn minted ICOT in addr2 to not interfere with following test math
-    await icotContract.connect(addr2).transfer(ethers.Wallet.createRandom().address, maxFundingBig);
-    expect(await icotContract.balanceOf(addr2.address)).to.equal(ethers.constants.Zero);
+    await icotContract
+      .connect(addr2)
+      .transfer(ethers.Wallet.createRandom().address, maxFundingBig);
+    expect(await icotContract.balanceOf(addr2.address)).to.equal(
+      ethers.constants.Zero
+    );
   });
 
   it("Random address cannot set ico params", async function () {
@@ -172,10 +177,9 @@ describe("Successful ICO", function () {
     const blockNumBefore = await ethers.provider.getBlockNumber();
     const blockBefore = await ethers.provider.getBlock(blockNumBefore);
     const timestampBefore = blockBefore.timestamp;
+    endTime = timeDuration + timestampBefore;
 
-    expect(await icoManagerContract.timeLimit()).to.equal(
-      timeDuration + timestampBefore
-    );
+    expect(await icoManagerContract.timeLimit()).to.equal(endTime);
   });
 
   it("After start of ICO, no change allowed", async function () {
@@ -198,14 +202,13 @@ describe("Successful ICO", function () {
     expect(await icoManagerContract.allocationToInvestors()).to.equal(
       allocationToInvestorsBig
     );
-    
+
     /* expect(await icoManagerContract.stablecoinAddrList(0)).to.equal(
       daiAddress
     ); */
     expect(await icoManagerContract.stablecoinAddress(daiAddress)).to.equal(
       true
     );
-
   });
 
   it("Max Tokens sellable is correct", async function () {
@@ -230,160 +233,226 @@ describe("Successful ICO", function () {
     );
     expect(await icoManagerContract.timeLimitReached()).to.equal(false);
   });
-  
+
   it("TimeLimitReached & ICOCurrent correct", async function () {
     expect(await icoManagerContract.ICOCurrent()).to.equal(
       ethers.utils.parseEther("0")
     );
     expect(await icoManagerContract.timeLimitReached()).to.equal(false);
   });
-    
+
   it("Addr1 cannot participate in ICO with $0", async function () {
-    let dollarAmount = ethers.utils.parseEther("0")
- 
-    await expect(icoManagerContract.connect(addr1).participate(dollarAmount, daiAddress)).to.be.revertedWith("Amount must be greater than 0")
+    let dollarAmount = ethers.utils.parseEther("0");
+
+    await expect(
+      icoManagerContract.connect(addr1).participate(dollarAmount, daiAddress)
+    ).to.be.revertedWith("Amount must be greater than 0");
   });
-  
+
   it("Cannot go over maxFunding", async function () {
-    let dollarAmount = ethers.utils.parseEther("200")
- 
-    await expect(icoManagerContract.connect(addr1).participate(dollarAmount, daiAddress)).to.be.revertedWith("Not enough tokens available")
+    let dollarAmount = ethers.utils.parseEther("200");
+
+    await expect(
+      icoManagerContract.connect(addr1).participate(dollarAmount, daiAddress)
+    ).to.be.revertedWith("Not enough ICOT tokens available");
   });
-  
+
   it("Cannot use not accepted stablecoin address", async function () {
-    let dollarAmount = ethers.utils.parseEther("1")
- 
-    await expect(icoManagerContract.connect(addr1).participate(dollarAmount, addr2.address)).to.be.revertedWith("Stablecoin is not accepted")
+    let dollarAmount = ethers.utils.parseEther("1");
+
+    await expect(
+      icoManagerContract.connect(addr1).participate(dollarAmount, addr2.address)
+    ).to.be.revertedWith("Stablecoin is not accepted");
   });
-  
+
   it("Balance of particiant too low", async function () {
-    let dollarAmount = ethers.utils.parseEther("1")
- 
-    await expect(icoManagerContract.connect(addr1).participate(dollarAmount, daiAddress)).to.be.revertedWith("Not enough tokens in stablecoin")
+    let dollarAmount = ethers.utils.parseEther("1");
+
+    await expect(
+      icoManagerContract.connect(addr1).participate(dollarAmount, daiAddress)
+    ).to.be.revertedWith("Not enough stablecoin");
   });
 
   it("Addr1 receives DAI", async function () {
-    await daiContract.mint(addr1.address, maxFundingBig); 
+    await daiContract.mint(addr1.address, maxFundingBig);
     expect(await daiContract.balanceOf(addr1.address)).to.equal(maxFundingBig);
   });
-  
-  it("Addr1 allows DAI spending from ICOManagers", async function () {
-    let dollarAmount = ethers.utils.parseEther("4")
 
-    await daiContract.connect(addr1).approve(icoManagerAddress, dollarAmount)
-    expect(await daiContract.allowance(addr1.address, icoManagerAddress)).to.equal(dollarAmount);
+  it("Addr1 allows DAI spending from ICOManagers", async function () {
+    let dollarAmount = ethers.utils.parseEther("4");
+
+    await daiContract.connect(addr1).approve(icoManagerAddress, dollarAmount);
+    expect(
+      await daiContract.allowance(addr1.address, icoManagerAddress)
+    ).to.equal(dollarAmount);
   });
 
   it("Addr1 participate in ICO with $4 == 1 ICOT", async function () {
-    let icotAmount = ethers.utils.parseEther("1")
+    let icotAmount = ethers.utils.parseEther("1");
 
-    await icoManagerContract.connect(addr1).participate(icotAmount, daiAddress)
+    await icoManagerContract.connect(addr1).participate(icotAmount, daiAddress);
   });
-  
+
   it("Addr1 cannot participate without approving ICOManager", async function () {
-    let icotAmount = ethers.utils.parseEther("1")
+    let icotAmount = ethers.utils.parseEther("1");
 
-    await expect(icoManagerContract.connect(addr1).participate(icotAmount, daiAddress)).to.be.revertedWith("ERC20: insufficient allowance")
+    await expect(
+      icoManagerContract.connect(addr1).participate(icotAmount, daiAddress)
+    ).to.be.revertedWith("ERC20: insufficient allowance");
   });
-  
+
   it("ICO Current rises with 1 ICOT", async function () {
-    let icoCurrent = ethers.utils.parseEther("1")
+    let icoCurrent = ethers.utils.parseEther("1");
 
-    expect( await icoManagerContract.ICOCurrent()).to.equal(icoCurrent)
-  });
-  
-  it("InvestorsAmount for addr1 increases by 1 ICOT", async function () {
-    let addr1Amount = ethers.utils.parseEther("1")
-
-    expect( await icoManagerContract.investorsAmounts(addr1.address)).to.equal(addr1Amount)
+    expect(await icoManagerContract.ICOCurrent()).to.equal(icoCurrent);
   });
 
-  it("investorsAddresses array has addr1", async function () {
-    expect(await icoManagerContract.investorsAddresses(0)).to.equal(addr1.address)
+  it("ParticipationTicket for addr1 has correct data", async function () {
+    let addr1Amount = ethers.utils.parseEther("1");
+
+    let participantTicket = await icoManagerContract.participationTickets(
+      addr1.address,
+      0
+    );
+
+    expect(participantTicket.stablecoinUsed).to.equal(daiAddress);
+    expect(participantTicket.amount).to.equal(addr1Amount);
+    expect(participantTicket.endOfICO).to.equal(endTime);
   });
-  
-  it("investorsAddresses has only 1 address", async function () {
-    await expect(icoManagerContract.investorsAddresses(1)).to.be.reverted
+
+  it("Addr1 has only 1 participation ticket", async function () {
+    await expect(icoManagerContract.participationTickets(addr1.address, 1)).to
+      .be.reverted;
   });
-  
+
   it("addr2 buys the rest of the ICOT available", async function () {
     // Mint enough DAI to buy rest of the tokens
-    await daiContract.mint(addr2.address, maxFundingBig); 
+    await daiContract.mint(addr2.address, maxFundingBig);
     expect(await daiContract.balanceOf(addr2.address)).to.equal(maxFundingBig);
 
     // Approve ICOManager to spend DAI on behalf of Addr2
-    await daiContract.connect(addr2).approve(icoManagerAddress, maxFundingBig)
-    expect(await daiContract.allowance(addr2.address, icoManagerAddress)).to.equal(maxFundingBig);
+    await daiContract.connect(addr2).approve(icoManagerAddress, maxFundingBig);
+    expect(
+      await daiContract.allowance(addr2.address, icoManagerAddress)
+    ).to.equal(maxFundingBig);
 
     // buy the rest of the tokens
-    maxICOTokens = await icoManagerContract.maxICOTokens()
-    let ICOCurrent = await icoManagerContract.ICOCurrent()
+    maxICOTokens = await icoManagerContract.maxICOTokens();
+    let ICOCurrent = await icoManagerContract.ICOCurrent();
 
     tokensStillAvailable = maxICOTokens.sub(ICOCurrent);
-    await icoManagerContract.connect(addr2).participate(tokensStillAvailable, daiAddress)
+    await icoManagerContract
+      .connect(addr2)
+      .participate(tokensStillAvailable, daiAddress);
   });
-  
+
   it("addr1 cannot buy, all tokens sold", async function () {
     // Approve ICOManager to spend DAI on behalf of Addr1
-    await daiContract.connect(addr1).approve(icoManagerAddress, maxFundingBig)
-    expect(await daiContract.allowance(addr1.address, icoManagerAddress)).to.equal(maxFundingBig);
+    await daiContract.connect(addr1).approve(icoManagerAddress, maxFundingBig);
+    expect(
+      await daiContract.allowance(addr1.address, icoManagerAddress)
+    ).to.equal(maxFundingBig);
 
-    let icotAmount = ethers.utils.parseEther("1")
-    await expect(icoManagerContract.connect(addr1).participate(icotAmount, daiAddress)).to.be.revertedWith("Not enough tokens available")
+    let icotAmount = ethers.utils.parseEther("1");
+    await expect(
+      icoManagerContract.connect(addr1).participate(icotAmount, daiAddress)
+    ).to.be.revertedWith("Not enough ICOT tokens available");
   });
-  
+
   it("Sets network timestamp to when ICO has ended", async function () {
-    await ethers.provider.send("evm_increaseTime", [3600])
-    await icoManagerContract.checkTimeLimit()
+    await ethers.provider.send("evm_increaseTime", [3600]);
+    await icoManagerContract.checkTimeLimit();
   });
 
-  it("Addr1 has 1 ICOT Token", async function () {
-    expect(await icotContract.balanceOf(addr1.address)).to.equal(ethers.constants.WeiPerEther);
-  })
-  
+  it("Addr1 has 1 ICOT Token after withdraw", async function () {
+    await icoManagerContract.connect(addr1).withdraw();
+
+    expect(await icotContract.balanceOf(addr1.address)).to.equal(
+      ethers.constants.WeiPerEther
+    );
+  });
+
+  it("Addr1 cannot withdraw anymore", async function () {
+    await icoManagerContract.connect(addr1).withdraw();
+
+    expect(await icotContract.balanceOf(addr1.address)).to.equal(
+      ethers.constants.WeiPerEther
+    );
+  });
+
+  it("Addr1 has 0 tickets", async function () {
+    await expect(icoManagerContract.participationTickets(addr1.address, 0)).to
+      .be.reverted;
+  });
+
   it("Addr2 has the rest ICOT Token", async function () {
-    expect(await icotContract.balanceOf(addr2.address)).to.equal(tokensStillAvailable);
-  })
-  
+    await icoManagerContract.connect(addr2).withdraw();
+
+    expect(await icotContract.balanceOf(addr2.address)).to.equal(
+      tokensStillAvailable
+    );
+  });
+
   it("Owner has received 20% of DAI immediately", async function () {
-    let daiInOwner = (immediateTransferRate * maxFunding).toString(); 
-    let daiInOwnerBig = ethers.utils.parseEther(daiInOwner)
+    let daiInOwner = (immediateTransferRate * maxFunding).toString();
+    let daiInOwnerBig = ethers.utils.parseEther(daiInOwner);
 
     expect(await daiContract.balanceOf(owner.address)).to.equal(daiInOwnerBig);
-  })
-  
-  it("Contract has received 80% of DAI immediately", async function () {
-    let daiInContract = ( (1 - immediateTransferRate) * maxFunding).toString(); 
-    let daiInContractBig = ethers.utils.parseEther(daiInContract)
+  });
 
-    expect(await daiContract.balanceOf(icoManagerAddress)).to.equal(daiInContractBig);
-  })
-  
+  it("Contract has received 80% of DAI in permanent vault", async function () {
+    let daiInContract = ((1 - immediateTransferRate) * maxFunding).toString();
+    let daiInContractBig = ethers.utils.parseEther(daiInContract);
+
+    expect(await daiContract.balanceOf(icoManagerAddress)).to.equal(
+      daiInContractBig
+   
+    );
+
+    expect(await icoManagerContract.vaultStablecoin(daiAddress)).to.equal(
+      daiInContractBig
+    );
+  });
+
   it("Resets ICO parameters", async function () {
     expect(await icoManagerContract.timeLimit()).to.equal(0);
     expect(await icoManagerContract.minFunding()).to.equal(0);
     expect(await icoManagerContract.maxFunding()).to.equal(0);
     expect(await icoManagerContract.exchangeRate()).to.equal(0);
-    expect(await icoManagerContract.exchangeRate()).to.equal(0);
+
     expect(await icoManagerContract.allocationToInvestors()).to.equal(0);
-    await expect(icoManagerContract.stablecoinAddrList(0)).to.be.reverted; 
-    expect(await icoManagerContract.ICOTAddress()).to.equal(icotAddress); 
+    await expect(icoManagerContract.stablecoinAddrList(0)).to.be.reverted;
+    expect(await icoManagerContract.ICOTAddress()).to.equal(icotAddress);
+  });
 
-
-  })
-  
   it("Resets ICO variables", async function () {
-    expect(await icoManagerContract.stablecoinAddress(daiAddress)).to.equal(false);
-    expect(await icoManagerContract.fundImmediateTransfer()).to.equal(immediateTransferRateBig);
-    expect(await icoManagerContract.investorsAmounts(addr1.address)).to.equal(0);
-    // expect(await icoManagerContract.investorsAddresses(0)).to.be.reverted; 
-    expect(await icoManagerContract.stablecoinUsed(addr1.address)).to.equal(ethers.constants.AddressZero); 
-    expect(await icoManagerContract.ICOCurrent()).to.equal(ethers.utils.parseEther('0')); 
-    expect(await icoManagerContract.minICOTokens()).to.equal(ethers.utils.parseEther('0')); 
-    expect(await icoManagerContract.maxICOTokens()).to.equal(ethers.utils.parseEther('0')); 
-    expect(await icoManagerContract.timeLimitReached()).to.equal(true); 
-  })
+    expect(await icoManagerContract.stablecoinAddress(daiAddress)).to.equal(
+      false
+    );
+    expect(await icoManagerContract.fundImmediateTransfer()).to.equal(
+      immediateTransferRateBig
+    );
+
+    await expect(icoManagerContract.participationTickets(addr1.address, 0)).to
+      .be.reverted;
+    await expect(icoManagerContract.participationTickets(addr2.address, 0)).to
+      .be.reverted;
+
+    expect(await icoManagerContract.ICOCurrent()).to.equal(
+      ethers.utils.parseEther("0")
+    );
+    expect(await icoManagerContract.minICOTokens()).to.equal(
+      ethers.utils.parseEther("0")
+    );
+    expect(await icoManagerContract.maxICOTokens()).to.equal(
+      ethers.utils.parseEther("0")
+    );
+    expect(await icoManagerContract.timeLimitReached()).to.equal(true);
+  });
+
   it("ICO Manager has right ICOT Balance", async function () {
-    expect(await icotContract.balanceOf(icoManagerAddress)).to.equal(tokensTotalInContract.sub(maxICOTokens)); 
-  })
+    expect(await icotContract.balanceOf(icoManagerAddress)).to.equal(
+      tokensTotalInContract.sub(maxICOTokens)
+    );
+  });
 });

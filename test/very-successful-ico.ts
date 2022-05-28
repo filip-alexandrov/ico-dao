@@ -2,8 +2,6 @@
 
 // Heavy stress test: there are ~1000 different participants
 // in the ICO with 4 leading stablecoins
-// The transaction runs out of gas; 
-// Consider allowing the participant to withdraw by himself
 
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { expect } from "chai";
@@ -16,7 +14,7 @@ describe("Very Successful ICO", function () {
     addr2: SignerWithAddress,
     addr3: SignerWithAddress,
     other: SignerWithAddress[];
- 
+
   let thousandParticipants: Wallet[] = [];
 
   // ICOT Token params
@@ -73,6 +71,7 @@ describe("Very Successful ICO", function () {
   let oneICOTPrice = ethers.utils.parseEther(exchangeRate.toString());
   let maxICOTokens = ethers.utils.parseEther("1000");
   let participantsPerStablecoin = 250;
+  let endTime: number;
 
   // Sequential testing, after this block EVM state will change
   before(async function () {
@@ -131,10 +130,19 @@ describe("Very Successful ICO", function () {
       maxFundingBig,
       allocationToInvestorsBig
     );
+
+    const blockNumBefore = await ethers.provider.getBlockNumber();
+    const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+    const timestampBefore = blockBefore.timestamp;
+    endTime = timeDuration + timestampBefore;
   });
 
   it("250 Participants receive 4 DAI airdrop each", async function () {
-    for (let i = 0*participantsPerStablecoin; i < 1*participantsPerStablecoin; i++) {
+    for (
+      let i = 0 * participantsPerStablecoin;
+      i < 1 * participantsPerStablecoin;
+      i++
+    ) {
       await daiContract.mint(thousandParticipants[i].address, oneICOTPrice);
       expect(
         await daiContract.balanceOf(thousandParticipants[i].address)
@@ -143,7 +151,11 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants allow ICO Manager to spend 4 DAI", async function () {
-    for (let i = 0*participantsPerStablecoin; i < 1*participantsPerStablecoin; i++) {
+    for (
+      let i = 0 * participantsPerStablecoin;
+      i < 1 * participantsPerStablecoin;
+      i++
+    ) {
       // Give ETH to fund transactions
       await ethers.provider.send("hardhat_setBalance", [
         thousandParticipants[i].address,
@@ -167,23 +179,32 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants buy each 1 ICOT for 4 DAI", async function () {
-    for (let i = 0*participantsPerStablecoin; i < 1*participantsPerStablecoin; i++) {
+    for (
+      let i = 0 * participantsPerStablecoin;
+      i < 1 * participantsPerStablecoin;
+      i++
+    ) {
       await icoManagerContract
         .connect(thousandParticipants[i])
         .participate(oneToken, daiAddress);
-      expect(
-        await icoManagerContract.investorsAmounts(
-          thousandParticipants[i].address
-        )
-      ).to.equal(oneToken);
-      expect(await icoManagerContract.investorsAddresses(i)).to.equal(
-        thousandParticipants[i].address
+
+      let participantTicket = await icoManagerContract.participationTickets(
+        thousandParticipants[i].address,
+        0
       );
+
+      expect(participantTicket.stablecoinUsed).to.equal(daiAddress);
+      expect(participantTicket.amount).to.equal(oneToken);
+      expect(participantTicket.endOfICO).to.equal(endTime);
     }
   });
 
   it("250 Participants receive 4 UST airdrop each", async function () {
-    for (let i = 1*participantsPerStablecoin; i < 2*participantsPerStablecoin; i++) {
+    for (
+      let i = 1 * participantsPerStablecoin;
+      i < 2 * participantsPerStablecoin;
+      i++
+    ) {
       await ustContract.mint(thousandParticipants[i].address, oneICOTPrice);
       expect(
         await ustContract.balanceOf(thousandParticipants[i].address)
@@ -192,7 +213,11 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants allow ICO Manager to spend 4 UST", async function () {
-    for (let i = 1*participantsPerStablecoin; i < 2*participantsPerStablecoin; i++) {
+    for (
+      let i = 1 * participantsPerStablecoin;
+      i < 2 * participantsPerStablecoin;
+      i++
+    ) {
       // Give ETH to fund transactions
       await ethers.provider.send("hardhat_setBalance", [
         thousandParticipants[i].address,
@@ -216,23 +241,32 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants buy each 1 ICOT for 4 UST", async function () {
-    for (let i = 1*participantsPerStablecoin; i < 2*participantsPerStablecoin; i++) {
+    for (
+      let i = 1 * participantsPerStablecoin;
+      i < 2 * participantsPerStablecoin;
+      i++
+    ) {
       await icoManagerContract
         .connect(thousandParticipants[i])
         .participate(oneToken, ustAddress);
-      expect(
-        await icoManagerContract.investorsAmounts(
-          thousandParticipants[i].address
-        )
-      ).to.equal(oneToken);
-      expect(await icoManagerContract.investorsAddresses(i)).to.equal(
-        thousandParticipants[i].address
+
+      let participantTicket = await icoManagerContract.participationTickets(
+        thousandParticipants[i].address,
+        0
       );
+
+      expect(participantTicket.stablecoinUsed).to.equal(ustAddress);
+      expect(participantTicket.amount).to.equal(oneToken);
+      expect(participantTicket.endOfICO).to.equal(endTime);
     }
   });
 
   it("250 Participants receive 4 USDT airdrop each", async function () {
-    for (let i = 2*participantsPerStablecoin; i < 3*participantsPerStablecoin; i++) {
+    for (
+      let i = 2 * participantsPerStablecoin;
+      i < 3 * participantsPerStablecoin;
+      i++
+    ) {
       await usdtContract.mint(thousandParticipants[i].address, oneICOTPrice);
       expect(
         await usdtContract.balanceOf(thousandParticipants[i].address)
@@ -241,7 +275,11 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants allow ICO Manager to spend 4 USDT", async function () {
-    for (let i = 2*participantsPerStablecoin; i < 3*participantsPerStablecoin; i++) {
+    for (
+      let i = 2 * participantsPerStablecoin;
+      i < 3 * participantsPerStablecoin;
+      i++
+    ) {
       // Give ETH to fund transactions
       await ethers.provider.send("hardhat_setBalance", [
         thousandParticipants[i].address,
@@ -265,25 +303,32 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants buy each 1 ICOT for 4 USDT", async function () {
-    for (let i = 2*participantsPerStablecoin; i < 3*participantsPerStablecoin; i++) {
+    for (
+      let i = 2 * participantsPerStablecoin;
+      i < 3 * participantsPerStablecoin;
+      i++
+    ) {
       await icoManagerContract
         .connect(thousandParticipants[i])
         .participate(oneToken, usdtAddress);
 
-      expect(
-        await icoManagerContract.investorsAmounts(
-          thousandParticipants[i].address
-        )
-      ).to.equal(oneToken);
-
-      expect(await icoManagerContract.investorsAddresses(i)).to.equal(
-        thousandParticipants[i].address
+      let participantTicket = await icoManagerContract.participationTickets(
+        thousandParticipants[i].address,
+        0
       );
+
+      expect(participantTicket.stablecoinUsed).to.equal(usdtAddress);
+      expect(participantTicket.amount).to.equal(oneToken);
+      expect(participantTicket.endOfICO).to.equal(endTime);
     }
   });
 
   it("250 Participants receive 4 MIM airdrop each", async function () {
-    for (let i = 3*participantsPerStablecoin; i < 4*participantsPerStablecoin; i++) {
+    for (
+      let i = 3 * participantsPerStablecoin;
+      i < 4 * participantsPerStablecoin;
+      i++
+    ) {
       await mimContract.mint(thousandParticipants[i].address, oneICOTPrice);
       expect(
         await mimContract.balanceOf(thousandParticipants[i].address)
@@ -292,7 +337,11 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants allow ICO Manager to spend 4 MIM", async function () {
-    for (let i = 3*participantsPerStablecoin; i < 4*participantsPerStablecoin; i++) {
+    for (
+      let i = 3 * participantsPerStablecoin;
+      i < 4 * participantsPerStablecoin;
+      i++
+    ) {
       // Give ETH to fund transactions
       await ethers.provider.send("hardhat_setBalance", [
         thousandParticipants[i].address,
@@ -316,32 +365,35 @@ describe("Very Successful ICO", function () {
   });
 
   it("250 Participants buy each 1 ICOT for 4 MIM", async function () {
-    for (let i = 3*participantsPerStablecoin; i < 4*participantsPerStablecoin; i++) {
+    for (
+      let i = 3 * participantsPerStablecoin;
+      i < 4 * participantsPerStablecoin;
+      i++
+    ) {
       await icoManagerContract
         .connect(thousandParticipants[i])
         .participate(oneToken, mimAddress);
-      expect(
-        await icoManagerContract.investorsAmounts(
-          thousandParticipants[i].address
-        )
-      ).to.equal(oneToken);
-      expect(await icoManagerContract.investorsAddresses(i)).to.equal(
-        thousandParticipants[i].address
+
+      let participantTicket = await icoManagerContract.participationTickets(
+        thousandParticipants[i].address,
+        0
       );
+
+      expect(participantTicket.stablecoinUsed).to.equal(mimAddress);
+      expect(participantTicket.amount).to.equal(oneToken);
+      expect(participantTicket.endOfICO).to.equal(endTime);
     }
   });
 
   it("All investors have correct parameters in ICO Manager", async function () {
-    for (let i = 0; i < 4*participantsPerStablecoin; i++) {
-      expect(
-        await icoManagerContract.investorsAmounts(
-          thousandParticipants[i].address
-        )
-      ).to.equal(oneToken);
-
-      expect(await icoManagerContract.investorsAddresses(i)).to.equal(
-        thousandParticipants[i].address
+    for (let i = 0; i < 4 * participantsPerStablecoin; i++) {
+      let participantTicket = await icoManagerContract.participationTickets(
+        thousandParticipants[i].address,
+        0
       );
+
+      expect(participantTicket.amount).to.equal(oneToken);
+      expect(participantTicket.endOfICO).to.equal(endTime);
     }
   });
 
@@ -350,11 +402,24 @@ describe("Very Successful ICO", function () {
     await icoManagerContract.checkTimeLimit();
   });
 
-  it("Investors receive tokens", async function () {
-    for (let i = 0; i < 4*participantsPerStablecoin; i++) {
+  it("Investors withdraw ICOT and have correct balances", async function () {
+    for (let i = 0; i < 4 * participantsPerStablecoin; i++) {
+      await icoManagerContract.connect(thousandParticipants[i]).withdraw();
+
       expect(
         await icotContract.balanceOf(thousandParticipants[i].address)
       ).to.equal(oneToken);
+    }
+  });
+
+  it("Investor's tickets are reset", async function () {
+    for (let i = 0; i < 4 * participantsPerStablecoin; i++) {
+      await expect(
+        icoManagerContract.participationTickets(
+          thousandParticipants[i].address,
+          0
+        )
+      ).to.be.reverted;
     }
   });
 });
