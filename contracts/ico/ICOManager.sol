@@ -161,11 +161,12 @@ contract ICOManager is ReentrancyGuard {
         );
 
         uint256 amountStablecoin = _amount.mul(exchangeRate);
-        IERC20(_stablecoinAddr).transferFrom(
+        bool successfulTransfer = IERC20(_stablecoinAddr).transferFrom(
             msg.sender,
             address(this),
             amountStablecoin
         );
+        require(successfulTransfer, "Stablecoin transfer failed"); 
 
         // Update ICO variables
         ICOCurrent += _amount;
@@ -200,7 +201,9 @@ contract ICOManager is ReentrancyGuard {
 
     // Investor should call this function to withdraw stablecoins/ICOT tokenss
     // Don't allow holding tokens or stablecoins between ICO's (security)
-    function withdraw() public nonReentrant {
+    function withdraw() public nonReentrant  {
+        require(timeLimitReached == true, "ICO is still active");
+
         for (uint256 i = 0; i < participationTickets[msg.sender].length; i++) {
             // ICO was successful => transfer ICOT tokens to investor
             uint256 endOfICO = participationTickets[msg.sender][i].endOfICO;
