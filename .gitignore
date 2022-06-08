@@ -8,4 +8,3 @@ typechain
 # @Alexandrov: Here we are removing the hardhat files because we are using the hardhat-cli
 cache
 artifacts
-docs.md
